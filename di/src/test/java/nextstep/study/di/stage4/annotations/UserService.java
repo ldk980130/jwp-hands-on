@@ -5,8 +5,12 @@ import nextstep.study.User;
 @Service
 class UserService {
 
-    @Inject
     private UserDao userDao;
+
+    @Inject
+    public UserService(UserDao userDao) {
+        this.userDao = userDao;
+    }
 
     public User join(final User user) {
         userDao.insert(user);
