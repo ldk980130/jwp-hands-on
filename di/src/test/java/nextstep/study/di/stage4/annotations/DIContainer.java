@@ -7,7 +7,6 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Set;
-import java.util.stream.Collectors;
 
 /**
  * 스프링의 BeanFactory, ApplicationContext에 해당되는 클래스
@@ -28,18 +27,23 @@ class DIContainer {
 
     private void initializeBeans(Set<Class<?>> classes) {
         for (Class<?> beanType : classes) {
-            inject(beanType);
+            inject(beanType, classes);
         }
     }
 
-    private void inject(Class<?> beanType) {
+    private void inject(Class<?> beanType, Set<Class<?>> classes) {
         if (existBeanType(beanType)) {
             return;
         }
-        Constructor<?> constructor = Arrays.stream(beanType.getConstructors())
+        Class<?> findBean = classes.stream()
+            .filter(beanType::isAssignableFrom)
+            .findFirst()
+            .orElseThrow();
+
+        Constructor<?> constructor = Arrays.stream(findBean.getConstructors())
             .filter(each -> each.isAnnotationPresent(Inject.class))
             .findFirst()
-            .orElse(beanType.getConstructors()[0]);
+            .orElse(findBean.getConstructors()[0]);
 
         if (constructor.getParameterCount() == 0) {
             beans.add(newInstance(constructor, new Object[] {}));
@@ -48,7 +52,7 @@ class DIContainer {
 
         Class<?>[] parameterTypes = constructor.getParameterTypes();
         List<Object> parameters = new ArrayList<>();
-        findParametersFromBeans(parameterTypes, parameters);
+        findParametersFromBeans(parameterTypes, parameters, classes);
         validateLessParameters(parameterTypes, parameters);
         beans.add(newInstance(constructor, parameters.toArray()));
     }
@@ -66,9 +70,9 @@ class DIContainer {
         }
     }
 
-    private void findParametersFromBeans(Class<?>[] parameterTypes, List<Object> parameters) {
+    private void findParametersFromBeans(Class<?>[] parameterTypes, List<Object> parameters, Set<Class<?>> classes) {
         for (Class<?> parameterType : parameterTypes) {
-            inject(parameterType);
+            inject(parameterType, classes);
             parameters.add(getBean(parameterType));
         }
     }
